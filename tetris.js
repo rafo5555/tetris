@@ -1,8 +1,8 @@
 const tetris = {
 
     __init: function(){
-        this.__initEvents();
         this.__initProperties();
+        this.__initEvents();
     },
     __initProperties: function(){
         this.tetY = 20;
@@ -25,6 +25,9 @@ const tetris = {
         this.score = 0;
         this.level = 1;
         this.interval = null;
+        this.gameAudio = new Audio('./audio/Super-Mario-Bros.mp3');
+        this.scoreAudio = new Audio('./audio/get_score.wav');
+        this.endAudeio = new Audio('./audio/game_over.wav');
         this.levels = {
             1: 1000,
             2: 950,
@@ -48,14 +51,19 @@ const tetris = {
                     document.getElementById('level-value').innerHTML = this.value;
                 }
             });
+            that.scoreAudio.addEventListener('ended', function(){
+               that.gameAudio.play();
+            });
             document.getElementById('play-pause-btn').addEventListener('click', function(){
                 if(document.getElementById('start-stop-game').getAttribute('data-status') == 'playing'){
                     const status = this.getAttribute('data-status');
                     if(status == 'playing'){
+                        that.gameAudio.pause();
                         that.gameStatus = 'paused';
                         this.innerHTML = 'Play';
                         clearInterval(that.interval);
                     }else{
+                        that.gameAudio.play();
                         that.gameStatus = 'playing';
                         this.innerHTML = 'Pause';
                         that.interval = setInterval(() => {
@@ -68,6 +76,7 @@ const tetris = {
             document.getElementById('start-stop-game').addEventListener('click', function(e){
                 const status = this.getAttribute('data-status');
                 if(status == 'stopped'){
+                        that.gameAudio.play();
                         that.gameStatus = 'playing';
                         this.innerHTML = 'Stop';
                         that.placeFigure();
@@ -78,11 +87,12 @@ const tetris = {
                         }, that.duration);
                         document.getElementById('select-level').setAttribute('disabled',true);
                 }else{
-                        that.gameStatus = 'stopped';
-                        this.innerHTML = 'Start';
-                        that.clearTetris();
-                        document.getElementById('select-level').removeAttribute('disabled');
-                        document.querySelector('#select-level > option:first-child').setAttribute('selected',true);
+                    that.gameAudio.load();
+                    that.gameStatus = 'stopped';
+                    this.innerHTML = 'Start';
+                    that.clearTetris();
+                    document.getElementById('select-level').removeAttribute('disabled');
+                    document.querySelector('#select-level > option:first-child').setAttribute('selected',true);
                 }
                 this.setAttribute('data-status',that.gameStatus);
             });
@@ -109,10 +119,27 @@ const tetris = {
             that.nextFigure = that.getRandomFigure();
             that.startY = 0;
             that.startX = Math.floor(that.tetX / 2) -1;
-            that.placeFigure();
-            that.clearGameField('#next-figure-wrapper > .tetris-square',{x: that.nextFigWrapX, y: that.nextFigWrapY},'nextField');
-            that.placeNextFigure({startX: 1, startY: 0});
+            if(that.isOver()){
+                const elem =  document.getElementById('start-stop-game');
+                that.endAudeio.play();
+                elem.dispatchEvent(new Event('click'));
+                alert('The game is over. your score is '+ that.score);
+            }else{
+                that.placeFigure();
+                that.clearGameField('#next-figure-wrapper > .tetris-square',{x: that.nextFigWrapX, y: that.nextFigWrapY},'nextField');
+                that.placeNextFigure({startX: 1, startY: 0});
+            }
         });
+    },
+    isOver: function(){
+        for (let y = 0; y < 2; ++y) {
+            for (let x = 0; x < this.tetArrCopy[y].length; x++) {
+                if( this.tetArrCopy[y][x] > 0){
+                    return true;
+                } 
+            } 
+        }
+        return false;
     },
     moveFigureHorizontally: function(direction, number){
         if(!this.checkCollision(direction)){
@@ -151,10 +178,17 @@ const tetris = {
             }
             if(isCompleted){
                 this.score += (10 * this.level);
+                if(this.score / this.level >= 100 && this.levels.hasOwnProperty(this.level + 1)){
+                    this.level++;
+                    document.getElementById('level-value').innerHTML = this.level;
+                    document.querySelector(`#select-level > option[value="${this.level}"]`).setAttribute('selected',true);
+                }
                 document.getElementById('score-value').innerHTML = this.score;
                 this.tetrisArray.splice(y,1);
                 this.tetrisArray.unshift(new Array(this.tetX).fill(0));
                 this.appendSquares(document.getElementById('tetris-field'), this.tetrisArray);
+                this.gameAudio.pause();
+                this.scoreAudio.play();
             }
         }
     },
